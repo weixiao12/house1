@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *     @Auther: cjc 2018/8/28 0028
+ *@Auther: cjc 2018/8/28 0028
  */
 @Controller
 @RequestMapping("/district")
