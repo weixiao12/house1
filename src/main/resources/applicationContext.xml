@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context-4.3.xsd
+           http://www.springframework.org/schema/aop
+           http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+           http://www.springframework.org/schema/tx 
+           http://www.springframework.org/schema/tx/spring-tx-4.3.xsd ">
+   
+	<!--扫描注解的类  -->
+	<context:component-scan base-package="com.cool" />
+	<!--启用Aspectj注解  -->
+	<aop:aspectj-autoproxy/>
+
+	<!-- 加载属性文件 -->
+	<bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				 <value>classpath:jdbc.properties</value>
+			</list>
+		</property>
+	</bean>
+	
+	<!-- C3P0 配置数据源 -->
+		<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource" destroy-method="close">
+			<property name="driverClass" value="${c3p0.driverClass}" />                                       <!--连接数据库的驱动类 -->
+			<property name="jdbcUrl" value="${c3p0.jdbcUrl}" />                                               <!--连接数据库的url -->
+			<property name="user" value="${c3p0.user}" />                                                     <!--连接数据库的用户名 -->
+			<property name="password" value="${c3p0.password}" />                                             <!--连接数据库的密码 -->
+			<property name="maxPoolSize" value="${c3p0.maxPoolSize}" />                                       <!--连接池的最大连接数 -->
+			<property name="minPoolSize" value="${c3p0.minPoolSize}" />                                       <!--连接池的最小连接数 -->
+			<property name="initialPoolSize" value="${c3p0.initialPoolSize}" />                               <!--初始化连接数 -->
+			<property name="maxIdleTime" value="${c3p0.maxIdleTime}" />                                       <!--连接的最大空闲时间，超时的连接将被丢弃，单位：秒 -->
+			<property name="checkoutTimeout" value="${c3p0.checkoutTimeout}" />                               <!--没有连接可用时，等待连接的时间，单位：毫秒 -->
+			<!-- 心跳 -->	
+			<property name="testConnectionOnCheckout" value="${c3p0.testConnectionOnCheckout}" />
+			<property name="testConnectionOnCheckin"  value="${c3p0.testConnectionOnCheckin}" />
+			<property name="idleConnectionTestPeriod" value="${c3p0.idleConnectionTestPeriod}" />
+		</bean>
+		<!--配置连接数据源 end-->
+  	
+	
+	
+	<!--sessionFactory  bean  -->
+	<bean id="sessionFactory"  class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+		<property name="dataSource"  ref="dataSource" />
+		<property name="hibernateProperties">
+			<props>
+				<prop key="hibernate.dialect">org.hibernate.dialect.Oracle10gDialect</prop>
+				<prop key="hibernate.show_sql">true</prop>
+				<prop key="hibernate.format_sql">true</prop>
+			</props>
+		</property>
+		<property name="packagesToScan">
+			<list>
+				<value>com.cool.entity</value>
+			</list>
+		</property>
+	</bean>
+
+	<!-- 异常处理 -->
+	<bean id="myAdviceLogger"  class="com.cool.advice.MyAdviceLogger"></bean>
+
+	<!--aop  使用spring提供的API 管理程序的事务  -->
+	<bean id="txManager"  class="org.springframework.orm.hibernate5.HibernateTransactionManager">
+		<property name="sessionFactory"  ref="sessionFactory" />
+	</bean>
+	
+	<!-- 定义事务的通知 -->
+	<!-- propagation 事务传播机制 REQUIRED -->
+	<tx:advice transaction-manager="txManager"  id="txAdvice">
+			<tx:attributes>
+				<tx:method name="get*"    	read-only="true" />
+				<tx:method name="load*"    	read-only="true" />
+				<tx:method name="find*"    	read-only="true" />
+				<tx:method name="look*"    	read-only="true" />
+				<tx:method name="check*"    	read-only="true" />
+				<tx:method name="query*"    	read-only="true" />
+				<tx:method name="read*"    	read-only="true" />
+				<tx:method name="count*"    	read-only="true" />
+				<tx:method name="select*"    read-only="true" />
+				
+				<tx:method name="ex*"    propagation="REQUIRED"  rollback-for="java.lang.Exception" />
+				<tx:method name="update*"    propagation="REQUIRED"  rollback-for="java.lang.Exception" />
+				<tx:method name="del*"    	propagation="REQUIRED"  rollback-for="java.lang.Exception"/>
+				<tx:method name="remove*"    	propagation="REQUIRED"  rollback-for="java.lang.Exception"/>
+				<tx:method name="insert*"    propagation="REQUIRED"  rollback-for="java.lang.Exception"/>
+				<tx:method name="add*"    	propagation="REQUIRED"  rollback-for="java.lang.Exception"/>
+				<tx:method name="set*"    	propagation="REQUIRED"  rollback-for="java.lang.Exception"/>
+				<tx:method name="execute*"   propagation="REQUIRED"  rollback-for="java.lang.Exception"/>
+				<tx:method name="save*"    	propagation="REQUIRED"  rollback-for="java.lang.Exception"/>
+				<tx:method name="*"    		propagation="REQUIRED"  read-only="true"/>
+			</tx:attributes>
+	</tx:advice>
+	
+	<aop:config>
+			<aop:pointcut expression="execution(* com.cool.serviceImpl.*.*(..))" id="servicePoint"/>
+			<aop:advisor advice-ref="txAdvice"  pointcut-ref="servicePoint" />
+		<!--代理记录错误日志 -->
+		<aop:aspect ref="myAdviceLogger">
+			<aop:around method="aroundLogger"   pointcut-ref="servicePoint" />
+		</aop:aspect>
+	</aop:config>
+	
+		
+	<!-- dao bean -->
+	
+	<!-- service bean -->
+	
+	<!--action Bean  -->
+	
+	
+		
+</beans>
